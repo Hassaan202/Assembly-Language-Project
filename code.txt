@@ -1,0 +1,3343 @@
+[org 0x0100]
+
+jmp start
+totalRows: dw 43
+totalCols: dw 132
+
+brick1attribute:dw 2
+brick2attribute:dw 1
+brick3attribute:dw 0
+brick1row: dw 27
+brick2row: dw 34
+brick3row: dw 41
+brick1column: dw 25
+brick2column: dw 85
+brick3column: dw 55
+brick1frequency: dw 0
+brick2frequency: dw 0 
+brick3frequency: dw 0
+brick1flag: dw 0
+brick2flag: dw 1
+brick3flag: dw 0
+onBlue: dw 0
+blueEndTickCount: dw 0
+blueCurrentTickCount: dw 0
+
+confirmationStr: db 'Do you want to exit?' ;20 size
+optionStr: db 'Y/N'  ;3 size
+
+nameStr: db 'Enter your name: '
+rollStr: db 'Enter your roll number: '
+nam: times 30 db ' '
+nameSize: dw 0
+roll: times 30 db ' '
+rollSize: dw 0
+
+isGameRunning: dw 0
+
+oldisr: dd 0
+oldTimer: dd 0
+tickcount: dw 0
+
+score: dw 0
+scoreStr: times 10 db ' '
+scoreStrSize: dw 0
+
+rabbitCurrCol: dw 55
+rabbitRow: dw 40
+carrotRow: dw 32
+carrotCol: dw 60
+buffer: times 132 dw 0
+string: dw 'Score:', $
+gameOverMessage: dw 'Game Over!'
+frequency: dw 40
+
+inst1: db '1-Press UP key for jump', 0 
+inst2: db '2-Plus 1 score on each correct jump', 0
+inst3: db '3-Plus 2 on correct jump on carrot', 0
+inst4: db '4-Press ESC and Y for exit', 0
+inst5: db 'GREEN BRICK - STATIC', 0
+inst6: db 'BROWN BRICK - MOVING', 0
+inst7: db 'YELLOW BRICK - MOVING', 0
+inst8: db 'BLUE BRICK - STATIC, BREAKS AFTER 5 SECONDS', 0
+inst9: db 'Press any key to continue......', 0
+Loading: db 'LOADING:  ', 0
+
+gameEnd: dw 0
+
+;-----------------------------------------------------------
+changeBackground:
+push bp
+mov bp, sp
+push dx
+push ax
+push di
+push si
+push es
+
+mov ax, 0xB800 ;display memory block starting physical address
+mov es, ax
+
+push 0xFFFF
+push word[bp+6] ;starting row
+push 0
+call calculatePosition
+pop di ;start pos
+
+push 0xFFFF
+mov dx, word[bp+4] ;ending row
+dec dx
+push dx
+push word[totalCols]
+call calculatePosition 
+pop si ;end pos
+
+mov bx, [bp+8]
+nexChar:
+mov word[es:di], bx
+add di, 2
+cmp di, si 
+jne nexChar
+
+pop es
+pop si
+pop di
+pop ax
+pop dx
+pop bp
+ret 6
+
+;-----------------------------------------------------------
+clrScreen:
+push bp
+mov bp, sp
+push dx
+push ax
+push di
+push si
+push es
+
+mov ax, 0xB800 ;display memory block starting physical address
+mov es, ax
+
+push 0xFFFF
+push word[bp+6] ;starting row
+push 0
+call calculatePosition
+pop di ;start pos
+
+push 0xFFFF
+mov dx, word[bp+4] ;ending row
+dec dx
+push dx
+push word[totalCols]
+call calculatePosition 
+pop si ;end pos
+
+nextChar:
+mov word[es:di], 0x0720 ;background is black, foreground is space char so empty slot
+add di, 2
+cmp di, si 
+jne nextChar
+
+pop es
+pop si
+pop di
+pop ax
+pop dx
+pop bp
+ret 4
+;-----------------------------------------------------------
+
+calculatePosition:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+mov ax, 0
+mov ax, [totalCols]
+mul word[bp+6]
+add ax, [bp+4]
+shl ax, 1
+mov word[bp+8], ax  ;return value
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 4
+
+;-----------------------------------------------------------
+delay1:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+
+; mov cx, 0x0030
+; loop11: loop loop11
+mov cx, 0x2000
+loop22: loop loop22
+
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+;-----------------------------------------------------------
+delay:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+
+mov cx, 0xffff
+loop111: loop loop111
+mov cx, 0xffff
+loop222: loop loop222
+
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+;-----------------------------------------------------------
+printNum:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov ax, 0xb800
+mov es, ax
+
+mov di, word[totalCols]
+dec di
+
+push 0xffff
+push word[bp+8];row
+push di ;column
+call calculatePosition
+pop di
+
+mov ax, word[bp+6] ;num
+mov bl, 10
+l1:
+div bl ;divide by 10
+print:
+mov dh, [bp+4]
+mov dl, 0
+mov dl, ah ;remainder
+add dl, '0' ;to get ascii
+mov word[es:di], dx
+sub di, 2
+
+mov ah, 0
+cmp ax, 0
+jne l1
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 6
+;-----------------------------------------------------------
+
+printMainScreen:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+call printBackGround
+call printForeGround
+call printFront
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+
+;-----------------------------------------------------------
+printBackGround:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+push 0 ;starting row
+push 7 ;ending row of sky and start of ground
+push 12 ;end of ground
+call printSkyAndGround
+
+mov cx, 6 ;currRow
+mov si, 5 ;currCol
+
+lop1:
+push cx
+push si
+call printTree
+add si, 20
+cmp si, 145
+jne lop1
+
+mov cx, 11 ;currRow
+mov si, 15 ;currCol
+
+lop2:
+push cx
+push si
+call printTree
+add si, 20
+cmp si, 135
+jne lop2
+
+; mov cx, 13 ;currRow
+; mov si, 9 ;currCol
+
+; lop3:
+; push cx
+; push si
+; call printTree
+; add si, 20
+; cmp si, 145
+; jbe lop3
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+
+;-----------------------------------------------------------
+printTree:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+mov ax, 0xB800
+mov es, ax
+
+mov dx, [bp+6] ;rows
+mov si, [bp+4] ;columns
+mov cx, 3
+
+lo1:
+push 0xFFFF
+push dx
+push si
+call calculatePosition
+pop di
+mov word[es:di], 0x06BA  ;prints brown trunk
+dec dx
+loop lo1
+
+mov cx, 4
+lo2:
+push 0xFFFF
+push dx
+push si
+call calculatePosition
+pop di
+mov word[es:di], 0x0a5e  ;^
+mov word[es:di-2], 0x0a2f ;/
+mov word[es:di+2], 0x0a5c ;(\)
+dec dx
+loop lo2
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 4
+;-----------------------------------------------------------
+printSkyAndGround:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+mov ax, 0xB800
+mov es, ax
+
+push 0xFFFF
+push word[bp+8]
+push 0
+call calculatePosition
+pop di ;starting position
+
+push 0xFFFF
+push word[bp+6]
+push word[totalCols]
+call calculatePosition
+pop si ;ending position
+
+l5:
+mov word[es:di], 0x8bad
+add di, 28
+cmp di, si
+jb l5
+
+push 0xffff
+push word[bp+6]
+push 0
+call calculatePosition
+pop di ;starting position
+push 0xFFFF
+push word[bp+4]
+push word[totalCols]
+call calculatePosition
+pop si ;ending position
+l6:
+mov word[es:di], 0x28b1
+add di, 2
+cmp di, si
+jb l6
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 6
+;-----------------------------------------------------------
+printForeGround:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+;ROAD
+;note that for the white road stripes to be in middle the difference of the rows must be odd
+push 13;first row
+push 26 ;final row
+call printRoad
+
+;CARS
+;bottomleft corner is provided as the parameter
+push 23;row
+push 50;col
+push 0x0004 ;color of car body
+call printCar
+
+push 17
+push 100
+push 0x0001 
+call printCar
+
+push 23
+push 5
+push 0x0005
+call printCar
+
+push 17
+push 20
+push 0x0009
+call printCar
+
+push 17
+push 70
+push 0x000e
+call printCar
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+
+;-----------------------------------------------------------
+printCar:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+mov ax, 0xB800
+mov es, ax
+
+mov si, [bp+8] ;row
+mov dx, [bp+6] ;col
+mov bx, [bp+4] ;color
+mov ah, bl
+
+;base of vehicle
+push 0xFFFF 
+push si
+push dx
+call calculatePosition
+pop di
+mov cx, 10
+mov al, 0xdb
+loop1:
+mov word[es:di], ax ;block of red color
+mov word[es:di-264], ax ;for the upper row(totalCols(132)*2)
+add di, 2
+loop loop1
+
+;tyres of the car
+inc si
+add dx, 2
+push 0xFFFF 
+push si
+push dx
+call calculatePosition
+pop di
+mov cx, 2
+loop2:
+mov word[es:di], 0x00db 
+mov word[es:di+8], 0x00db ;for the next tyre
+add di, 2
+loop loop2
+
+;upper part of the car
+sub si, 3  ;2 above the base and plus 1 as inc when printing tyre
+push 0xFFFF 
+push si
+push dx
+call calculatePosition
+pop di
+mov cx, 6
+loop3:
+mov al, 0xdb
+mov word[es:di], ax ;block of red color
+mov al, 0xdc
+mov word[es:di-264], ax ;half bottom block for the upper row(totalCols(132)*2)
+add di, 2
+loop loop3
+
+;windows
+mov si, [bp+8] ;row
+mov dx, [bp+6] ;col
+sub si, 2
+add dx, 3
+push 0xFFFF 
+push si
+push dx
+call calculatePosition
+pop di
+mov word[es:di], 0x07db
+mov word[es:di+6], 0x07db
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 6
+;-----------------------------------------------------------
+
+printRoad:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+mov ax, 0xB800
+mov es, ax
+
+;upper border
+mov di, [bp+6]
+push 0xFFFF
+push di
+push 0
+call calculatePosition
+pop di ;starting position of the road
+mov cx, [totalCols]
+loop4:
+mov word[es:di], 0x07f0
+add di, 2
+loop loop4
+
+;road 
+mov ax, word[bp+4]
+dec ax
+push 0xffff
+push ax ;row before final
+push word[totalCols] ;callculate final val of di
+call calculatePosition
+pop si
+loop5:
+mov word[es:di], 0x07db
+add di, 2
+cmp di, si
+jne loop5
+
+;lower border
+mov cx, [totalCols]
+loop6:
+mov word[es:di], 0x07f0 ;identity sign
+add di, 2
+loop loop6
+
+;white stripes
+mov ax, [bp+6]
+add ax, [bp+4]
+shr ax, 1   ;find the mid
+
+push 0xffff
+push ax
+push 0
+call calculatePosition
+pop di
+
+mov ax, [totalCols]
+shl ax, 1
+add ax, di
+
+loop9:
+mov cx, 10  ;stripes of 1 block each
+loop7:
+mov word[es:di], 0x0fdb 
+add di, 2
+cmp di, ax
+ja en
+loop loop7
+
+mov cx, 10
+loop8:
+add di, 2
+cmp di, ax
+ja en
+loop loop8
+jmp loop9
+
+en:
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 4
+;-----------------------------------------------------------
+printFront:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+push 0x03db;attribute
+push 27 ;row
+push 43 ;col
+call changeBackground
+
+cmp word[brick1attribute], 0 ;green
+jne w1
+mov ax, 0x02
+jmp pr1
+w1:
+cmp word[brick1attribute], 1 ;yellow
+jne w2
+mov ax, 0x0e
+jmp pr1
+w2:
+cmp word[brick1attribute], 2;orange
+jne w7
+mov ax, 0x06
+jmp pr1
+w7:
+;blue
+mov ax, 0x01
+jmp pr1
+
+pr1:
+push word[brick1row]
+push word[brick1column]
+push ax ;attribute
+call printBricks
+
+cmp word[brick2attribute], 0 ;green
+jne w3
+mov ax, 0x02
+jmp pr2
+w3:
+cmp word[brick2attribute], 1 ;yellow
+jne w4
+mov ax, 0x0e
+jmp pr2
+w4:
+cmp word[brick2attribute], 2 ;orange
+jne w8
+mov ax, 0x06
+jmp pr2
+w8:
+;blue
+mov ax, 0x01
+jmp pr2
+
+pr2:
+push word[brick2row]
+push word[brick2column]
+push ax ;attribute
+call printBricks
+
+cmp word[brick3attribute], 0 ;green
+jne w5
+mov ax, 0x02
+jmp pr3
+w5:
+cmp word[brick3attribute], 1 ;yellow
+jne w6
+mov ax, 0x0e
+jmp pr3
+w6:
+cmp word[brick3attribute], 2;orange
+jne w9
+mov ax, 0x06
+jmp pr3
+w9:
+;blue
+mov ax, 0x01
+jmp pr3
+
+pr3:
+push word[brick3row]
+push word[brick3column]
+push ax   ;attribute
+call printBricks
+
+;blue brick breaking effect
+cmp word[onBlue], 1
+jne skip1
+call blueBrickBreakEffect
+
+skip1:
+;rabbit
+push word[rabbitRow]
+push word[rabbitCurrCol]
+call printRabbit
+
+;carrot
+push word[carrotRow]
+push word[carrotCol]
+call printCarrot
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+;-----------------------------------------------------------
+
+printCarrot:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+mov ax, 0xB800
+mov es, ax
+
+push 0xffff
+push word[bp+6]
+push word[bp+4]
+call calculatePosition
+pop di ;bottom-left position
+mov ah, 0x34 
+mov al, 0xdb
+mov word[es:di], ax
+mov dx, [totalCols]
+shl dx, 1
+sub di, dx
+mov ah, 0x3a
+mov al, 0x9d
+mov word[es:di], ax
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 4
+;-----------------------------------------------------------
+printRabbit:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+mov ax, 0xB800
+mov es, ax
+
+push 0xffff
+push word[bp+6]
+push word[bp+4]
+call calculatePosition
+pop di ;bottom-left position
+mov ah, 0x07
+mov al, 0xdb
+
+mov bx, [totalCols]
+shl bx, 1
+
+mov cx, 4
+b1:
+mov word[es:di], ax
+add di, 2
+loop b1
+
+sub di, bx
+mov cx, 6
+b2:
+mov word[es:di], ax
+sub di, 2
+loop b2
+
+;mouth
+push ax
+mov ah, 0x75
+mov al, 0xcd
+add di, 6
+mov word[es:di], ax
+mov word[es:di+2], ax
+sub di, 6
+pop ax
+
+sub di, bx
+add di, 2
+mov cx, 6
+b3:
+mov word[es:di], ax
+add di, 2
+loop b3
+
+;eyes
+push ax
+mov ah, 0x71
+mov al, 0xdc
+sub di, 4
+mov word[es:di], ax
+mov word[es:di-6], ax
+pop ax
+
+;ears
+sub di, bx
+mov word[es:di], ax
+mov word[es:di-6], ax
+; sub di, bx
+; mov word[es:di], ax
+; mov word[es:di-6], ax
+ 
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 4
+;-----------------------------------------------------------
+printBricks:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+push 0xFFFF
+push word[bp+8] ;row
+push word[bp+6]  ;col
+call calculatePosition
+pop di
+
+mov ax, 0xB800
+mov es, ax
+
+mov ah, [bp+4] ;attribute
+mov al, 0xdb;ascii of solid block
+
+mov cx, 20
+rep stosw
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 6
+;-----------------------------------------------------------
+playGameAnimation:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+;checks the menu screen present or not
+cmp word[isGameRunning], 1
+jne en3
+
+cmp word[brick1attribute], 1
+jne nextAttribCheck1
+cmp word[brick1flag], 0
+jne rotopposite1
+push word[brick1row]
+call scrollRight
+inc word[brick1column]
+;to control right and left movement of the first brick
+inc word[brick1frequency]
+mov dx, [brick1frequency]
+cmp dx, [frequency]
+jne nextBrickCheck1
+mov word[brick1frequency], 0
+xor word[brick1flag], 1 ;toggles flag from 0 to 1
+jmp nextBrickCheck1
+rotopposite1:
+push word[brick1row]
+call scrollLeft
+dec word[brick1column]
+inc word[brick1frequency]
+mov dx, [brick1frequency]
+cmp dx, [frequency]
+jne nextBrickCheck1
+mov word[brick1frequency], 0
+xor word[brick1flag], 1 ;toggles flag from 1 to 0
+jmp nextBrickCheck1
+
+nextAttribCheck1:
+cmp word[brick1attribute], 2
+jne nextBrickCheck1
+cmp word[brick1flag], 0
+jne rotopposite2
+push word[brick1row]
+call scrollRight
+inc word[brick1column]
+inc word[brick1frequency]
+mov dx, [brick1frequency]
+cmp dx, [frequency]
+jne nextBrickCheck1
+mov word[brick1frequency], 0
+xor word[brick1flag], 1
+jmp nextBrickCheck1
+rotopposite2:
+push word[brick1row]
+call scrollLeft
+dec word[brick1column]
+inc word[brick1frequency]
+mov dx, [brick1frequency]
+cmp dx, [frequency]
+jne nextBrickCheck1
+mov word[brick1frequency], 0
+xor word[brick1flag], 1
+jmp nextBrickCheck1
+
+nextBrickCheck1:
+;for second brick, the code for left movment comes before the right movement
+cmp word[brick2attribute], 1
+jne nextAttribCheck2
+cmp word[brick2flag], 1
+jne rotateopposite3
+push word[brick2row]
+call scrollLeft
+dec word[brick2column]
+inc word[brick2frequency]
+mov dx, [brick2frequency]
+cmp dx, [frequency]
+jne nextBrickCheck2
+mov word[brick2frequency], 0
+xor word[brick2flag], 1
+jmp nextBrickCheck2
+rotateopposite3:
+push word[brick2row]
+call scrollRight
+inc word[brick2column]
+inc word[brick2frequency]
+mov dx, [brick2frequency]
+cmp dx, [frequency]
+jne nextBrickCheck2
+mov word[brick2frequency], 0
+xor word[brick2flag], 1
+jmp nextBrickCheck2
+
+nextAttribCheck2:
+cmp word[brick2attribute], 2
+jne nextBrickCheck2
+cmp word[brick2flag], 1
+jne rotateopposite4
+push word[brick2row]
+call scrollLeft
+dec word[brick2column]
+inc word[brick2frequency]
+mov dx, [brick2frequency]
+cmp dx, [frequency]
+jne nextBrickCheck2
+mov word[brick2frequency], 0
+xor word[brick2flag], 1
+jmp nextBrickCheck2
+rotateopposite4:
+push word[brick2row]
+call scrollRight
+inc word[brick2column]
+inc word[brick2frequency]
+mov dx, [brick2frequency]
+cmp dx, [frequency]
+jne nextBrickCheck2
+mov word[brick2frequency], 0
+xor word[brick2flag], 1
+jmp nextBrickCheck2
+
+;our rabbit will always be on brick 3 so if yellow/orange attribute then also scroll the rabbit 
+nextBrickCheck2:
+cmp word[brick3attribute], 1
+jne nextAttribCheck3
+cmp word[brick3flag], 0
+jne rotateopposite5
+push word[brick3row]
+call scrollRight
+inc word[brick3column]
+;scroll rabbit
+mov cx, 4 ;4 is the height of the rabbit
+mov si, [rabbitRow]
+nx3:
+push si
+call scrollRight
+dec si
+loop nx3
+inc word[rabbitCurrCol]
+inc word[brick3frequency]
+mov dx, [brick3frequency]
+cmp dx, [frequency]
+jne en3
+mov word[brick3frequency], 0
+xor word[brick3flag], 1
+jmp en3
+rotateopposite5:
+push word[brick3row]
+call scrollLeft
+dec word[brick3column]
+;scroll rabbit
+mov cx, 4 ;4 is the height of the rabbit
+mov si, [rabbitRow]
+nx31:
+push si
+call scrollLeft
+dec si
+loop nx31
+dec word[rabbitCurrCol]
+inc word[brick3frequency]
+mov dx, [brick3frequency]
+cmp dx, [frequency]
+jne en3
+mov word[brick3frequency], 0
+xor word[brick3flag], 1
+jmp en3
+
+nextAttribCheck3:
+cmp word[brick3attribute], 2
+jne en3
+cmp word[brick3flag], 0
+jne rotateopposite6
+push word[brick3row]
+call scrollRight
+inc word[brick3column]
+;scroll rabbit
+mov cx, 4 ;4 is the height of the rabbit
+mov si, [rabbitRow]
+nx33:
+push si
+call scrollRight
+dec si
+loop nx33
+inc word[rabbitCurrCol]
+inc word[brick3frequency]
+mov dx, [brick3frequency]
+cmp dx, [frequency]
+jne en3
+mov word[brick3frequency], 0
+xor word[brick3flag], 1
+jmp en3
+rotateopposite6:
+push word[brick3row]
+call scrollLeft
+dec word[brick3column]
+;scroll rabbit
+mov cx, 4 ;4 is the height of the rabbit
+mov si, [rabbitRow]
+nx32:
+push si
+call scrollLeft
+dec si
+loop nx32
+dec word[rabbitCurrCol]
+inc word[brick3frequency]
+mov dx, [brick3frequency]
+cmp dx, [frequency]
+jne en3
+mov word[brick3frequency], 0
+xor word[brick3flag], 1
+jmp en3
+
+en3:
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+;-----------------------------------------------------------
+printSea:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+mov ax, 0xB800
+mov es, ax
+
+push 0xffff
+push word[bp+6]
+push word[bp+4]
+call calculatePosition
+pop di
+
+;the first row of a different color for seperation
+mov cx, [totalCols]
+shr cx, 1
+l8:
+mov word[es:di], 0x7f5c ;(\)
+mov word[es:di+2], 0x7f2f ;/
+add di, 4
+loop l8 
+
+mov si, di
+;find maxIndex
+mov ax, [totalCols]
+mul word[totalRows]
+add ax, [totalCols]
+shl ax, 1
+
+;blue water
+loopp:
+mov word[es:di], 0x39b0
+add di, 2
+cmp di, ax
+jne loopp
+
+;white texture
+mov di, si
+loopp1:
+mov word[es:di], 0x37b0
+add di, 26
+cmp di, ax
+jb loopp1
+
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 4
+;-----------------------------------------------------------
+
+playAnimation:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+
+;check for the menu
+cmp word[isGameRunning], 1
+jne ex2
+
+mov cx, 0
+n2:
+push cx
+call scrollRight
+inc cx
+cmp cx, 13
+jne n2
+
+inc cx
+n3:
+push cx
+call scrollLeft
+inc cx
+cmp cx, 27
+jne n3
+
+ex2:
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+;-----------------------------------------------------------
+scrollRight:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov ax, 0xB800
+mov es, ax
+
+mov bx, 0
+mov bx, [totalCols]
+dec bx ;index of final column
+
+push 0xFFFF ;return val
+push word[bp+4] ;row num
+push bx ;col num
+call calculatePosition
+pop di  ;contains the index of the cell to be stored
+
+mov ax, word[es:di] ;stores the cell that will wrap around
+
+;shift the cells right
+push es
+pop ds
+mov cx, bx
+mov si, di
+sub si, 2
+
+std
+rep movsw
+
+;copy the stored cell to the first col
+mov [es:di], ax
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 2
+;-----------------------------------------------------------
+scrollLeft:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov ax, 0xB800
+mov es, ax
+
+push 0xFFFF ;return val
+push word[bp+4] ;row num
+push 0 ;col num
+call calculatePosition
+pop di  ;contains the index of the cell to be stored
+
+mov ax, word[es:di] ;stores the cell that will wrap around
+
+;shift the cells left
+push es
+pop ds
+mov cx, 0
+mov cx, 132 ;total cols
+dec cx
+mov si, di
+add si, 2
+
+cld
+rep movsw
+
+;copy the stored cell to the last col
+mov [es:di], ax
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 2
+
+;-----------------------------------------------------------
+
+jmpRabbit:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+push 27
+push 43
+call clrScreen
+
+call checkJump 
+call updateRows
+call printFront
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 
+;-----------------------------------------------------------
+checkJump:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov si, [brick2column]
+mov dx, [rabbitCurrCol]
+mov di, 4
+mov ax, 0 ;isAbove flag
+nx22:
+;check bricks of lenght 20 so check each column
+mov cx, 20 ;as at 20 col the rabbit will be half sticking out
+mov bx, si
+nx11:
+cmp bx, dx
+jne nextIter
+mov ax, 1
+jmp nx12
+nextIter:
+inc bx
+loop nx11
+inc dx
+dec di
+cmp di, 0
+jne nx22
+
+nx12:
+cmp ax, 1
+je en4
+;terminate the program
+call gameEndFunc
+jmp en6
+
+en4:
+;check if carrot above the rabbit
+mov cx, 6
+mov bx, [rabbitCurrCol]
+dec bx
+mov ax, 0 ;flag set
+nx21:
+cmp bx, [carrotCol]
+jne sk1
+mov ax, 1
+jmp incScore
+sk1:
+inc bx
+loop nx21
+
+incScore:
+cmp ax, 1
+jne en5
+add word[score], 1 ;bonus 1 score for collecting the carrot
+
+en5:
+inc word[score] ;as jump succesfully took place
+call jumpSound
+;increase the frequency of brick movement after some specific score(10)
+mov ax, word[score]
+mov dl, 10
+div dl
+cmp ah, 9
+jne en6
+add word[frequency], 5
+
+en6:
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 
+;-----------------------------------------------------------
+
+updateRows:
+push bp
+mov bp, sp
+push ax
+push dx
+;special checks for green and blue brick as they are static so should be in an accessible position
+
+;shift brick 2 to 3
+mov ax, [brick2attribute]
+mov word[brick3attribute], ax
+mov ax, [brick2column]
+mov word[brick3column], ax
+mov ax, word[brick2flag]
+mov word[brick3flag], ax
+mov ax, word[brick2frequency]
+mov word[brick3frequency], ax
+;shift brick 1 to 2
+mov ax, [brick1attribute]
+mov word[brick2attribute], ax
+mov ax, [brick1column]
+mov word[brick2column], ax
+mov ax, word[brick1flag]
+mov word[brick2flag], ax
+mov ax, word[brick1frequency]
+mov word[brick2frequency], ax
+
+;generating a new random brick
+push 0xffff
+push 0
+push 4
+call rand
+pop ax ;random brick number
+mov word[brick1attribute], ax
+cmp ax, 0
+je ifGreenOrBlue ;to ensure that the green row is in a reachable position
+cmp ax, 3
+je ifGreenOrBlue
+;checking the current position of the first brick so that the new brick spawns at the right place and direction
+mov dx, [brick1flag]
+cmp dx, 0
+jne adjustRowsAccordingly
+;new brick to move left i.e oppsoite to the current
+push 0xffff
+push 60
+push 70
+call rand
+pop ax ;random column number
+mov word[brick1column],ax
+mov word[brick1flag], 1
+jmp setFreq
+adjustRowsAccordingly:
+;new brick to move left i.e oppsoite to the current
+push 0xffff
+push 30
+push 40
+call rand
+pop ax ;random column number
+mov word[brick1column],ax
+mov word[brick1flag], 0
+jmp setFreq
+ifGreenOrBlue:
+cmp word[brick2attribute], 0
+je secondAlsoGreenOrBlue
+cmp word[brick2attribute], 3
+je secondAlsoGreenOrBlue
+mov ax, [brick2column]
+add ax, 10
+mov word[brick1column], ax ;so green brick is the center of the one below
+jmp setFreq
+secondAlsoGreenOrBlue:
+mov ax, [rabbitCurrCol] ;this will allow green bricks to spawn in the correct position so game doesn't end erroneously
+push 0xffff
+push 3
+push 7
+call rand
+pop dx
+sub ax, dx 
+mov word[brick1column], ax
+
+setFreq:
+mov word[brick1frequency], 0
+
+;check to start the timer for the blue brick
+cmp word[brick3attribute], 3
+jne notBlueBrick
+mov word[onBlue], 1
+mov ax, word[tickcount]
+add ax, 100 ;interval of 100 tick counts is approx 5 seconds
+mov word[blueEndTickCount], ax
+mov ax, word[tickcount]
+mov word[blueCurrentTickCount], ax ;to use the pause functionality so blue brick doesn't end game when paused
+jmp updateCarrotPos
+
+notBlueBrick:
+mov word[onBlue], 0
+
+updateCarrotPos:
+;update the carrot position 
+;note that this will only run if the jump succesfully took place otherwise the game will terminate
+push 0xffff
+push 50
+push 75
+call rand
+pop word[carrotCol]
+
+en2:
+pop dx
+pop ax
+pop bp
+ret
+;-----------------------------------------------------------
+printRectangle:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov ax, 0xb800
+mov es, ax
+mov si, [bp+12] ;row
+
+mov dx, [bp+8]
+mov ah, [bp+4] ;attribute
+mov al, 0xdb ;space
+cld
+lo4:
+push 0xffff
+push si
+push word[bp+10]
+call calculatePosition
+pop di
+mov cx, [bp+6] ;number of columns
+rep stosw
+dec dx
+cmp dx, 0
+je ex3
+inc si ;adds the row number
+jmp lo4
+
+ex3:
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 10
+;-----------------------------------------------------------
+printExitMenu:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+;print the menu background
+push 29
+push 48
+push 10
+push 38
+push 0x22
+call printRectangle
+
+push 30
+push 50
+push 8
+push 34
+push 0x11
+call printRectangle
+
+push 33
+push 56
+push 0x1f
+push 20
+push cs
+push confirmationStr
+call printStr
+
+push 35
+push 65
+push 0x1f
+push 3
+push cs
+push optionStr
+call printStr
+
+ex1:
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 
+;-----------------------------------------------------------
+
+kbIsr:
+push ax
+push es
+
+cmp word[gameEnd], 1
+je ex
+cmp word[isGameRunning], 1  ;the scroll operations will not take place if the the menu screen is placed
+jne menuOptions
+in al, 0x60
+cmp al, 0x48 ;hex scan code for the up key
+jne ne1
+call jmpRabbit ;contains jump checks, score increment, scroll platforms etc.. i.e all functionality
+ne1:
+cmp al, 0x81 ;esc
+jne ex
+mov word[isGameRunning], 0
+call printExitMenu
+jmp ex
+
+menuOptions:
+in al, 0x60
+cmp al, 0x15 ;y key scan code
+jne ne2
+call gameEndFunc
+jmp ex
+
+ne2:
+cmp al, 0x31 ;n key scan code
+jne ex
+restoreGame:
+mov word[isGameRunning], 1
+call printFront
+
+ex:
+mov al, 0x20 ;EOI to PIC
+out 0x20, al
+pop es
+pop ax
+iret 
+;-----------------------------------------------------------
+blueBrickBreakEffect:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov ax, 0xb800
+mov es, ax
+;the effect must be beneath the blue brick to be visible
+push 0xFFFF
+mov ax, [brick3row]
+inc ax
+push ax
+push word[brick3column]
+call calculatePosition
+pop di
+mov cx, 20
+mov ax, 0xb07e ;blue back and blinking chars
+rep stosw
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+
+;-----------------------------------------------------------
+stringLength:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+push word[bp+4] ;cs/segment
+pop es
+push word[bp+6] ;string offset
+pop di
+mov cx, 0xFFFF
+mov al, 0
+repne scasb
+mov ax, 0xFFFF
+sub ax, cx
+
+mov word[bp+8], ax ;return value
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 4
+;-----------------------------------------------------------
+printString:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+push 0xffff
+push word[bp+4]
+push word[bp+6]
+call stringLength
+pop cx ;length
+mov ah, 0x13 ;service
+mov al, 1 ;update cursor position
+mov bh, 0 ;page
+mov bl, [bp+8] ;attribute
+mov dh, [bp+12] ;row
+mov dl, [bp+10] ;col
+mov es, [bp+6] ;points to cs
+
+push bp
+mov di, [bp+4]
+mov bp, di
+int 0x10
+pop bp
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 10
+;-----------------------------------------------------------
+printStr:
+push bp
+mov bp, sp
+push es
+push ax
+push bx
+push cx
+push dx
+push di
+
+mov ah, 0x13 ;service
+mov al, 1 ;update cursor position
+mov bh, 0 ;page
+mov bl, [bp+10] ;attribute
+mov cx, [bp+8] ;length
+mov dh, [bp+14] ;row
+mov dl, [bp+12] ;col
+mov es, [bp+6] ;points to cs
+
+push bp
+mov di, [bp+4]
+mov bp, di
+int 0x10
+pop bp
+
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop es
+pop bp
+ret 12
+;------------------------------------------------------------------------------
+getInput:
+push bp
+mov bp, sp
+push es
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+
+mov di, [bp+6] ;string offset
+mov cx, 0
+n4:
+mov ah, 0x00
+int 0x16 ;get keystroke
+cmp al, 0x0d ;ascii
+je en8
+mov [di], al
+inc di
+inc cx
+mov dl, al
+mov ah, 0x02 ;print char at cursor position
+int 0x21
+jmp n4
+
+en8:
+mov si, word[bp+4] ;stores size of the string
+mov [si], cx
+
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop es
+pop bp
+ret 4
+;-----------------------------------------------------------
+scoreToStr:
+push bp
+mov bp, sp
+push es
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+
+mov ax, [cs:score]
+mov cx, 0
+mov bx, 10
+
+lo5:
+mov dx, 0
+div bx
+inc cx
+push dx ;remainder
+cmp ax, 0
+jne lo5
+
+mov [cs:scoreStrSize], cx ;updates the size
+mov bx, scoreStr
+lo6:
+pop dx
+add dl, '0' ;converts int to ascii for that int
+mov [cs:bx], dl
+inc bx
+loop lo6
+
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop es
+pop bp
+ret
+;-----------------------------------------------------------
+gameEndFunc:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov word[isGameRunning], 0
+mov word[gameEnd], 1
+
+mov ah, 0x00
+mov al, 0x13
+int 0x10
+
+;print the gameOver string
+push ds
+pop es
+mov ah, 0x13
+mov al, 1
+mov bh, 0
+mov bl, 0x0c
+mov cx, 10
+mov dh, 4
+mov dl, 15
+mov bp, gameOverMessage
+int 0x10 
+
+;name
+mov ah, 0x13
+mov al, 0
+mov bh, 0
+mov bl, 0x0f
+mov cx, [nameSize]
+mov dh, 10
+mov dl, 15
+mov bp, nam
+int 0x10 
+
+;roll
+mov ah, 0x13
+mov al, 0
+mov bh, 0
+mov bl, 0x0f
+mov cx, [rollSize]
+mov dh, 12
+mov dl, 15
+mov bp, roll
+int 0x10 
+
+;score
+;convert score to string
+call scoreToStr
+
+mov ah, 0x13
+mov al, 0
+mov bh, 0
+mov bl, 0x0a
+mov cx, 6
+mov dh, 14
+mov dl, 15
+mov bp, string
+int 0x10
+
+mov ah, 0x13
+mov al, 0
+mov bh, 0
+mov bl, 0x0f
+mov cx, [cs:scoreStrSize]
+mov dh, 14
+mov dl, 21
+mov bp, scoreStr
+int 0x10 
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret
+;-----------------------------------------------------------
+timer:
+push ax
+
+inc word [cs:tickcount]; increment tick count
+cmp word[isGameRunning], 1
+jne sk8
+inc word[blueCurrentTickCount]
+sk8:
+cmp word[onBlue], 1
+jne en7
+mov ax, word[blueCurrentTickCount]
+cmp ax, word[blueEndTickCount]
+jne en7
+call blueBrickBreakEffect
+call gameEndFunc
+
+en7:
+mov al, 0x20
+out 0x20, al ; end of interrupt
+
+pop ax
+iret ; return from interrupt
+;-----------------------------------------------------------
+rand:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov ax, [tickcount]
+mov bx, [bp+4]
+mov dx, [bp+6]
+sub bx, dx ;{high col - low col} gives the range of numbers(columns)
+xor dx, dx
+div bx  ;now dx holds the remainder
+add dx, [bp+6] ;gets the final column number by adding low
+
+mov word[bp+8], dx ;return val
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 4
+;-----------------------------------------------------------
+graphicanimation:
+mov ax, 0x0013 ; set 320x200 graphics mode
+int 0x10 ; bios video services
+
+mov ax, 0x0C09 ; put pixel in blue color
+xor bx, bx ; page number 0
+;;;--------------left boundary-------
+mov cx, 1 ; y position 200
+mov dx, 1 ; x position 200
+
+l21: int 0x10 ; bios video services
+inc dx ; decrease y position
+call delay1
+cmp dx , 199
+jnz l21; decrease x position and repeat
+;;;--------lower boundary-------
+mov cx, 1 ; y position 200
+mov dx, 199 ; x position 200
+
+l111: int 0x10 ; bios video services
+inc cx ; decrease y position
+call delay1
+cmp cx , 319
+jnz l111 ; decrease x position and repeat
+;;;---------------upper boundary-------
+mov cx, 1 ; y position 200
+mov dx, 1 ; x position 200
+l311: int 0x10 ; bios video services
+call delay1
+add cx ,1 ; decrease y position
+cmp cx , 320
+jnz l311; decrease x position and repeat
+;;--------------right  boundary-------
+mov cx, 319 ; y position 200
+mov dx, 1 ; x position 200
+
+l511: int 0x10 ; bios video services
+inc dx ; decrease y position
+call delay1
+cmp dx , 199
+jnz l511; decrease x position and repeat
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;     HASSAN    ;;;;;;;;;;;;;;;;;
+lh:
+mov dx , 10 ;row 
+mov cx , 20 
+
+lh1:int 0x10
+inc dx 
+call delay1 
+cmp dx ,40 
+jnz lh1 
+
+;;-------
+sub dx , 15 
+lh2:int 0x10
+inc cx 
+cmp cx , 33
+jnz lh2
+
+;;; |
+
+sub dx , 15
+
+lh31: int 0x10
+inc dx 
+call delay1 
+cmp dx ,40 
+jnz lh31
+
+
+;;;;A;;;;;;;;;;;;;;;
+
+mov cx , 50 
+mov dx , 10
+
+la1:int 0x10
+add dx , 1
+add cx , 319
+call delay1 
+cmp dx , 26
+jnz la1 
+
+
+mov cx ,50
+mov dx ,10
+la2:int 0x10
+add dx , 1
+add cx , 321
+call delay1 
+cmp dx , 26
+jnz la2 
+
+mov cx , 85
+mov dx , 10
+mov bx , 0
+ls1:int 0x10
+sub cx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls1 
+
+mov bx ,0
+ls2:int 0x10
+add dx ,1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls2 
+
+mov bx , 0
+ls3:int 0x10
+add cx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls3 
+
+mov bx ,0
+ls4:int 0x10
+add dx ,1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls4
+
+mov bx , 0
+ls5:int 0x10
+sub cx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls5 
+
+
+s:
+mov cx , 110
+mov dx , 10
+mov bx , 0
+ls6:int 0x10
+sub cx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls6
+
+mov bx ,0
+ls7:int 0x10
+add dx ,1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls7
+
+mov bx , 0
+ls8:int 0x10
+add cx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls8 
+
+mov bx ,0
+ls9:int 0x10
+add dx ,1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls9
+
+mov bx , 0
+ls10:int 0x10
+sub cx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls10 
+
+;;;;A;;;;;;;;;;;;;;;
+
+A:
+mov cx , 130
+mov dx , 10
+
+la5:int 0x10
+add dx , 1
+add cx , 319
+call delay1 
+cmp dx , 26
+jnz la5
+
+mov cx ,130
+mov dx ,10
+la6:int 0x10
+add dx , 1
+add cx , 321
+call delay1 
+cmp dx , 26
+jnz la6
+;N;;;
+n:
+
+mov cx , 170
+mov dx , 10
+
+ln1:int 0x10
+add dx , 1
+add cx , 319
+call delay1 
+cmp dx , 26
+jnz ln1
+
+
+mov cx ,170
+mov dx ,10
+ln2:int 0x10
+add dx , 1
+add cx , 321
+call delay1 
+cmp dx , 26
+jnz ln2
+
+mov bx , 0
+ln3:int 0x10
+sub dx , 1
+sub cx , 319
+add bx , 1
+cmp bx ,16
+jnz ln3
+
+;;;;;raza 
+;;r
+
+;;r
+
+mov cx , 160
+mov dx , 50
+mov bx , 0
+lr21:int 0x10
+add dx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz lr21
+
+mov cx , 160
+mov dx , 50
+mov bx ,0
+lr22:int 0x10
+add cx ,1
+add bx ,1
+cmp bx ,20
+jnz lr22
+
+mov bx ,0
+lr23:int 0x10
+add dx , 1
+add bx ,1
+cmp bx ,12
+jnz lr23
+
+mov bx , 0
+lr24:int 0x10
+sub cx , 1
+add bx ,1
+;call delay1 
+cmp bx , 20
+jnz lr24
+
+mov bx , 0
+lr25:
+int 0x10
+add cx , 321
+add bx ,1
+cmp bx ,20
+jnz lr25
+
+;;;;;;;A;;;;;;
+
+A2:
+mov cx , 200
+mov dx , 50
+
+la45:int 0x10
+add dx , 1
+add cx , 319
+call delay1 
+cmp dx , 66
+jnz la45
+
+mov cx ,200
+mov dx ,50
+la46:int 0x10
+add dx , 1
+add cx , 321
+call delay1 
+cmp dx , 66
+jnz la46
+;;;;;;;;;;;;Z
+
+z:
+mov cx , 240
+mov dx , 50
+mov bx , 0
+ls26:int 0x10
+sub cx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls26
+
+mov bx ,0
+ls27:int 0x10
+add dx ,1
+add cx , 321
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls27
+
+mov bx , 0
+ls28:int 0x10
+sub cx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz ls28 
+
+;;;;;;;;;;;;;;;
+;A
+
+A4:
+mov cx , 270
+mov dx , 50
+
+la55:int 0x10
+add dx , 1
+add cx , 319
+call delay1 
+cmp dx , 66
+jnz la55
+
+
+mov cx ,270
+mov dx ,50
+la56:int 0x10
+add dx , 1
+add cx , 321
+call delay1 
+cmp dx , 66
+jnz la56
+;;;;;Burhan 
+
+;;;;;;;;B;;;;;;;
+
+B:
+
+mov cx , 20
+mov dx , 110
+mov bx , 0
+lb300:int 0x10
+add dx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz lb300
+
+mov bx ,0
+lb311:int 0x10
+add cx ,1
+add bx ,1
+call delay1 
+cmp bx , 18
+jnz lb311
+
+
+mov bx , 0
+lb322:int 0x10
+sub dx  , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz lb322
+
+mov bx ,0
+lb344:int 0x10
+sub cx  ,1
+add bx ,1
+call delay1 
+cmp bx , 18
+jnz lb344
+
+add cx , 18
+mov bx , 0
+lb355:int 0x10
+sub dx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz lb355
+mov bx , 0
+
+lb366: int 0x10
+sub cx  ,1
+call delay1
+add bx ,1 
+cmp bx ,18
+jnz lb366
+;;;;;;;;U ;;;;;;;;;;
+
+U:
+
+mov cx , 50
+mov dx , 110
+mov bx , 0
+lu1:int 0x10
+add dx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz lu1
+
+mov cx , 50
+mov dx , 140
+mov bx ,0
+lu2:int 0x10
+add cx ,1
+call delay1
+add bx ,1
+cmp bx ,20
+jnz lu2
+
+mov bx ,0
+lu3:int 0x10
+sub dx , 1
+call delay1
+add bx ,1
+cmp bx ,30
+jnz lu3
+
+;;r
+
+mov cx , 80
+mov dx , 110
+mov bx , 0
+lr1:int 0x10
+add dx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz lr1
+
+mov cx , 80
+mov dx , 110
+mov bx ,0
+lr2:int 0x10
+add cx ,1
+add bx ,1
+call delay1
+cmp bx ,20
+jnz lr2
+
+mov bx ,0
+lr3:int 0x10
+add dx , 1
+add bx ,1
+call delay1
+cmp bx ,12
+jnz lr3
+
+mov bx , 0
+lr4:int 0x10
+sub cx , 1
+add bx ,1
+call delay1 
+cmp bx , 20
+jnz lr4
+
+mov bx , 0
+lr5:
+int 0x10
+call delay1
+add cx , 321
+add bx ,1
+cmp bx ,20
+jnz lr5
+
+;;;;;;;;;;;;;
+;;H
+h:
+mov cx , 115
+mov dx , 110
+mov bx , 0
+lh21:int 0x10
+add dx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz lh21
+
+sub dx , 15
+mov bx ,0
+lh22:int 0x10
+add cx ,1
+call delay1
+add bx ,1
+cmp bx ,20
+jnz lh22
+
+mov bx ,0
+lh23:int 0x10
+add dx , 1
+call delay1
+add bx ,1
+cmp bx ,15
+jnz lh23
+
+
+sub dx , 15
+mov bx , 0
+lh24:int 0x10
+sub dx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz lh24
+
+;;;;;;;;;;;
+;;;A
+
+;A:
+mov cx , 160
+mov dx , 110
+
+la25:int 0x10
+add dx , 1
+add cx , 319
+call delay1 
+cmp dx , 126
+jnz la25
+
+mov cx ,160
+mov dx ,110
+la26:int 0x10
+add dx , 1
+add cx , 321
+call delay1 
+cmp dx , 126
+jnz la26
+;;;
+;n
+
+mov cx , 200
+mov dx , 110
+
+ln21:int 0x10
+add dx , 1
+add cx , 319
+call delay1 
+cmp dx , 126
+jnz ln21
+
+mov cx ,200
+mov dx ,110
+ln22:int 0x10
+add dx , 1
+add cx , 321
+call delay1 
+cmp dx , 126
+jnz ln22
+
+mov bx , 0
+ln23:int 0x10
+sub dx , 1
+call delay1
+sub cx , 319
+add bx , 1
+cmp bx ,16
+jnz ln23
+;;;;;;;;;;;;;;BHATTI
+;;;B
+mov cx , 140
+mov dx , 150
+mov bx , 0
+lb30:int 0x10
+add dx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz lb30
+
+mov bx ,0
+lb31:int 0x10
+add cx ,1
+add bx ,1
+call delay1 
+cmp bx , 18
+jnz lb31
+
+mov bx , 0
+lb32:int 0x10
+sub dx  , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz lb32 
+
+mov bx ,0
+lb34:int 0x10
+sub cx  ,1
+add bx ,1
+call delay1 
+cmp bx , 18
+jnz lb34
+
+add cx , 18
+mov bx , 0
+lb35:int 0x10
+sub dx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz lb35
+mov bx , 0
+
+lb36: int 0x10
+sub cx  ,1
+call delay1
+add bx ,1 
+cmp bx ,18
+jnz lb36
+;;;;;;H
+h2:
+mov cx , 165
+mov dx , 150
+mov bx , 0
+lh212:int 0x10
+add dx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz lh212
+
+sub dx , 15
+mov bx ,0
+lh222:int 0x10
+add cx ,1
+add bx ,1
+call delay1
+cmp bx ,20
+jnz lh222
+
+mov bx ,0
+lh232:int 0x10
+add dx , 1
+call delay1
+add bx ,1
+cmp bx ,15
+jnz lh232
+
+
+sub dx , 15
+mov bx , 0
+lh242:int 0x10
+sub dx , 1
+add bx ,1
+call delay1 
+cmp bx , 15
+jnz lh242
+;;;;A
+A21:
+
+mov cx , 200
+mov dx , 150
+
+la451:int 0x10
+add dx , 1
+add cx , 319
+call delay1 
+cmp dx , 166
+jnz la451
+
+
+mov cx ,200
+mov dx ,150
+la461:int 0x10
+add dx , 1
+
+add cx , 321
+call delay1 
+cmp dx , 166
+jnz la461
+;;;;;;;;;T;;;
+
+t1:
+mov cx , 208
+mov dx , 150
+mov bx , 0
+lt1:int 0x10
+call delay1
+add cx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz lt1
+
+sub cx, 15
+mov bx ,0
+lt2:int 0x10
+call delay1
+add dx ,1
+add bx ,1
+cmp bx ,30
+jnz lt2
+
+
+t2:
+mov cx , 240
+mov dx , 150
+mov bx , 0
+lt12:int 0x10
+add cx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz lt12
+
+sub cx, 15
+mov bx ,0
+lt22:int 0x10
+call delay1
+add dx ,1
+add bx ,1
+cmp bx ,30
+jnz lt22
+
+;;;;;;;;I 
+
+I2:
+mov cx , 275
+mov dx , 150
+mov bx , 0
+li12:int 0x10
+add cx , 1
+add bx ,1
+call delay1 
+cmp bx , 30
+jnz li12
+
+sub cx, 15
+mov bx ,0
+li22:int 0x10
+add dx ,1
+call delay1
+add bx ,1
+cmp bx ,30
+jnz li22
+sub cx , 15
+mov bx , 0
+li33: int 0x10
+call delay1
+add cx , 1
+add bx , 1
+cmp bx , 30 
+jnz li33
+
+;press any key to start the game
+mov ah, 0 ; service 0 – get keystroke
+int 0x16 ; bios keyboard services
+
+mov ax, 0x0003 ; 80x25 text mode
+int 0x10 ; bios video services
+
+ret
+;-----------------------------------------------------------
+introScreen:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov ax, 0x0013  ; Set 320x200 256-color graphics mode
+int 0x10  
+
+push 0
+push 24
+call clrScreen
+ 
+push 7
+push 2
+push 0x07
+push 17
+push cs
+push nameStr
+call printStr ;using dos services
+
+push nam
+push nameSize
+call getInput
+
+push 9
+push 2
+push 0x07
+push 24
+push cs
+push rollStr
+call printStr
+
+push roll
+push rollSize
+call getInput
+
+;restores old video mode
+mov ax, 0x0003 ; 80x25 text mode
+int 0x10 ; bios video services
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 
+;-----------------------------------------------------------
+instructionScreen:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+;changing the resolution
+mov ah, 0x00   ;change resolution to 43 x 132 
+mov al, 0x54
+int 0x10 ;interrupt 10 to set video mode service number in ah
+
+;green background
+push 0x02db
+push 0
+push 43
+call changeBackground
+
+;printing rows of trees
+mov cx, 13
+mov dx, 8 ;row
+mov bx, 5 ;column
+l12:
+push dx
+push bx
+call printTree
+add bx, 10
+loop l12
+
+mov cx, 13
+mov dx, 14 ;row
+mov bx, 10 ;column
+l13:
+push dx
+push bx
+call printTree
+add bx, 10
+loop l13
+
+mov cx, 13
+mov dx, 20 ;row
+mov bx, 5 ;column
+l14:
+push dx
+push bx
+call printTree
+add bx, 10
+loop l14
+
+;Printing the instructions
+push 23
+push 10
+push 0x20
+push cs
+push inst1
+call printString
+
+push 26
+push 10
+push 0x20
+push cs
+push inst2
+call printString
+
+push 29
+push 10
+push 0x20
+push cs
+push inst3
+call printString
+
+push 32
+push 10
+push 0x20
+push cs
+push inst4
+call printString
+
+mov cx, 10
+l18:
+call delay
+loop l18
+
+;printing the brick, its atttributes and properties
+;Green
+push 23
+push 80
+push 0x2A
+push cs
+push inst5
+call printString
+
+push 24
+push 80
+push 0x2A
+call printBricks
+
+;Brown
+push 26
+push 80
+push 0x26
+push cs
+push inst6
+call printString
+
+push 27
+push 80
+push 0x26
+call printBricks
+
+;Yellow
+push 30
+push 80
+push 0x2e
+push cs
+push inst7
+call printString
+
+push 31
+push 80
+push 0x2e
+call printBricks
+
+;Blue
+push 34
+push 80
+push 0x21
+push cs
+push inst8
+call printString
+
+push 35
+push 80
+push 0x21
+call printBricks
+
+;Loading
+push 40
+push 30
+push 0x2e
+push cs
+push Loading
+call printString
+
+mov cx, 15
+l17:
+call delay
+loop l17
+
+;carrots
+mov cx, 20
+mov dx, 40
+l16:
+push 40
+push dx
+call printCarrot
+add dx, 4
+loop l16
+
+;Rabbit moving and eating all the carrots
+mov cx, 75
+mov dx, 41 ;row
+mov bx, 40 ;col
+l15:
+push dx
+push bx 
+call printRabbit
+
+call delay
+
+mov di, dx  ;new row
+sub di, 3
+mov si, bx ;new col
+dec si
+push di
+push si
+push 6
+push 4
+push 0x22
+call printRectangle
+add bx, 1
+loop l15
+
+dec bx
+push dx
+push bx
+call printRabbit
+
+push 37
+push 10
+push 0xaf
+push cs
+push inst9
+call printString
+
+mov ah, 0
+int 0x16
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 
+
+;-----------------------------------------------------------
+jumpSound:
+push bp
+mov bp, sp
+push ax
+push bx
+push cx
+push dx
+push di
+push si
+push es
+push ds
+
+mov al, 182
+out 43h, al
+mov ax, 4560
+
+out 42h, al
+mov al, ah
+out 42h, al
+in al, 61h
+
+or al, 00000011b
+out 61h, al
+mov bx, 25
+call delay1
+mov cx, 65535
+call delay1
+dec cx
+je sk6
+call delay1
+sk6:
+dec bx
+je sk7
+call delay1
+sk7:
+in al, 61h
+and al, 11111100b   ; Reset bits 1 and 0.
+out 61h, al
+
+pop ds
+pop es
+pop si
+pop di
+pop dx
+pop cx
+pop bx
+pop ax
+pop bp
+ret 
+;-----------------------------------------------------------
+;Correctly working phase 4+5
+start:
+call introScreen
+;call graphicanimation
+call instructionScreen
+
+mov ah, 0x00   ;change resolution to 43 x 132 
+mov al, 0x54
+int 0x10 ;interrupt 10 to set video mode service number in ah
+
+call printMainScreen
+
+xor ax, ax
+mov es, ax
+;saving the old interrupt
+mov ax, [es:9*4]
+mov word[oldisr], ax
+mov ax, [es:9*4+2]
+mov word[oldisr+2], ax
+mov ax, [es:8*4]
+mov word[oldTimer], ax
+mov ax, [es:8*4+2]
+mov word[oldTimer+2], ax
+;hooking the interrupt
+cli
+mov word[es:9*4], kbIsr
+mov word[es:9*4+2], cs
+mov word[es:8*4], timer
+mov word[es:8*4+2], cs
+sti
+
+;the game has started running
+mov word[isGameRunning], 1
+
+n1:
+call playAnimation ;infinite loop
+call delay
+call playGameAnimation
+;exiting the loop if the game overs
+cmp word[gameEnd], 1
+jne sk2
+jmp term
+sk2:
+;printing score
+push 29 ;row number
+push word[score] 
+push 0x30
+call printNum ;constantly prints the updated score
+push 29
+push 123
+push 0x30
+push 6
+push cs
+push string
+call printStr ;prints the score string
+jmp n1
+
+call delay
+call delay
+
+term:
+;unhooking just in case
+mov ax, word[oldisr]
+mov bx, word[oldisr+2]
+mov cx, [oldTimer]
+mov dx, [oldTimer+2]
+cli
+mov word[es:9*4], ax
+mov word[es:9*4+2], bx
+mov word[es:8*4], cx
+mov word[es:8*4+2], dx
+sti
+
+mov ah, 0
+int 0x16
+
+mov ax, 0x0003 ; 80x25 text mode
+int 0x10 ; bios video services
+
+;no need to use tsr as our program in infinite loop so never exits the program for the hooked program to cause errors
+mov ax, 0x4c00 
+int 0x21
